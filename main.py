@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 
 def main():
     # Učitavanje istreniranog modela
-    model = load_model('AI.h5')
+    model = load_model('AI_mse_500_ljudi.h5')
 
     # Učitavanje slika za obradu
-    folder_path = './archive/color'
+    folder_path = './moje slike'
     color_images, gray_images = LoadImagesFromFolder(folder_path)
 
     # Obrada slika
-    num = 10 # broj slika koje ćemo obraditi
+    num = 2 # broj slika koje ćemo obraditi
     after_ai = model.predict(gray_images[-num:])
     
     # Prikaz obrađenih slika

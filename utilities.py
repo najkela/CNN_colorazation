@@ -47,7 +47,7 @@ def MakeModel(input_size=(128, 128, 1)):
     conv5 = layers.Conv2D(64, 3, activation='relu', padding='same')(conv5)
 
     # Output layer
-    outputs = layers.Conv2D(3, 1, activation='sigmoid')(conv5)  # 3 kanala za RGB
+    outputs = layers.Conv2D(3, 1, activation='sigmoid')(conv5)
     
     model = models.Model(inputs=inputs, outputs=outputs)
     return model
