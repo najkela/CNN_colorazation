@@ -27,6 +27,7 @@ def main():
         ax[2][i].imshow(after_ai[i])
     fig.tight_layout()
     plt.show()
+    
 
 if __name__ == '__main__':
     main()
