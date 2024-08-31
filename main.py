@@ -9,11 +9,13 @@ def main():
 
     # Učitavanje slika za obradu
     folder_path = './moje slike'
-    color_images, gray_images = LoadImagesFromFolder(folder_path)
+    _, gray_images = LoadImagesFromFolder(folder_path, (128, 128))
+    originals = LoadOriginalImages(folder_path, (128, 128))
 
     # Obrada slika
     num = 4 # broj slika koje ćemo obraditi
     after_ai = model.predict(gray_images[:num])
+    after_ai = CombineWithGray(after_ai, gray_images, num)
     
     # Prikaz obrađenih slika
     fig, ax = plt.subplots(3, num, figsize = (200, 100))
@@ -22,7 +24,7 @@ def main():
         ax[0][i].set_axis_off()
         ax[1][i].set_axis_off()
         ax[2][i].set_axis_off()
-        ax[0][i].imshow(color_images[i])
+        ax[0][i].imshow(originals[i])
         ax[1][i].imshow(gray_images[i], cmap = 'gray')
         ax[2][i].imshow(after_ai[i])
     fig.tight_layout()

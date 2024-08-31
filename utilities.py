@@ -1,4 +1,4 @@
-import os, cv2, numpy as np
+import os, cv2, numpy as np, tensorflow as tf
 from tensorflow.keras import layers, models # type: ignore
 
 def LoadImagesFromFolder(folder, size = (256, 256)):
@@ -7,17 +7,49 @@ def LoadImagesFromFolder(folder, size = (256, 256)):
         img = cv2.imread(os.path.join(folder, file_name))
         if img is not None:
             img = cv2.resize(img, size)
-            color_images.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            gray_images.append(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+            h, s, v = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2HSV))
+            h = h / 179.
+            s = s / 255.
+            v = v / 255.
+            hs = np.stack([h, s], axis = -1)
+            color_images.append(hs)
+            gray_images.append(v)
 
     color_images = np.array(color_images)
     gray_images = np.array(gray_images)
     gray_images = np.expand_dims(gray_images, axis=-1)
 
-    color_images = color_images / 255.
-    gray_images = gray_images / 255.
-
     return (color_images, gray_images)
+
+def LoadOriginalImages(folder, size = (256, 256)):
+    images = []
+    for file_name in os.listdir(folder):
+        img = cv2.imread(os.path.join(folder, file_name))
+        if img is not None:
+            img = cv2.resize(img, size)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            images.append(img)
+
+    return images
+
+def CombineWithGray(ai_generated, gray_images, num):
+    finished = []
+    for i in range(num):
+        hs = ai_generated[i]
+        h = hs[:, :, 0]
+        s = hs[:, :, 1]
+        v = gray_images[i][:, :, 0]
+
+        h = h * 179
+        s = s * 255
+        v = v * 255
+
+        photo = np.stack([h, s, v], axis = -1).astype(np.uint8)
+        photo = cv2.cvtColor(photo, cv2.COLOR_HSV2RGB)
+
+        finished.append(photo)
+    
+    return finished
 
 def MakeModel(input_size=(128, 128, 1)):
     inputs = layers.Input(input_size)
@@ -46,7 +78,7 @@ def MakeModel(input_size=(128, 128, 1)):
     conv5 = layers.Conv2D(64, 3, activation='relu', padding='same')(conv5)
 
     # Output layer
-    outputs = layers.Conv2D(3, 1, activation='sigmoid')(conv5)
+    outputs = layers.Conv2D(2, 1, activation='sigmoid')(conv5)
     
     model = models.Model(inputs=inputs, outputs=outputs)
     return model
@@ -102,3 +134,15 @@ def MakeLargerModel(input_size = (256, 256, 1)):
     # Model
     model = models.Model(inputs=inputs, outputs=outputs)
     return model
+
+def PerceptualLoss(feature_real, feature_pred, p = 1):
+    if p == 1:
+        return tf.reduce_mean(tf.abs(feature_real - feature_pred))
+    elif p == 2:
+        return tf.reduce_mean(tf.square(feature_real - feature_pred))
+
+def color_distribution_loss(hist_real, hist_pred):
+    return tf.reduce_mean(tf.square(hist_real - hist_pred))
+
+def mse_loss(image_real, image_pred):
+    return tf.reduce_mean(tf.square(image_real - image_pred))
