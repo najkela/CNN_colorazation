@@ -1,21 +1,18 @@
 from utilities import *
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
 
 def main():
     # Pravljenje modela
-    model = MakeModel()
-    model.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError()) # treba staviti moju loss funkciju
+    model = MakeLargerModel()
+    model.compile(optimizer = 'adam', loss = CustomLoss)
 
     # Učitavanje fajlova
-    folder_path = './dataset'
-    color_images, gray_images = LoadImagesFromFolder(folder_path, size = (128, 128))
-
-    # Podela slika za trening i test
-    train_gray_images, _, train_color_images, _ = train_test_split(gray_images, color_images, test_size=0.2, random_state=42)
+    folder_path = './mid_smaller_dataset'
+    color_images, gray_images = LoadImagesFromFolder(folder_path)
 
     # Treniranje modela
-    history = model.fit(train_gray_images, train_color_images, validation_split=0.1, epochs=200, batch_size=None)
+    print("pocinje trening")
+    history = model.fit(gray_images, color_images, validation_split=0.2, epochs=2, batch_size=32)
 
     # Čuvanje istreniranog modela
     model.save('AI.h5')

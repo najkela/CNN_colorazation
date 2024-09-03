@@ -2,8 +2,9 @@ import os, cv2, numpy as np, tensorflow as tf
 from tensorflow.keras import layers, models # type: ignore
 
 def LoadImagesFromFolder(folder, size = (256, 256)):
-    color_images, gray_images = [], []
-    for file_name in os.listdir(folder):
+    imgs_paths = os.listdir(folder)
+    color_images, gray_images = np.zeros((len(imgs_paths), size[0], size[1], 2)), np.zeros((len(imgs_paths), size[0], size[1], 1))
+    for i, file_name in enumerate(imgs_paths):
         img = cv2.imread(os.path.join(folder, file_name))
         if img is not None:
             img = cv2.resize(img, size)
@@ -11,13 +12,9 @@ def LoadImagesFromFolder(folder, size = (256, 256)):
             h = h / 179.
             s = s / 255.
             v = v / 255.
-            hs = np.stack([h, s], axis = -1)
-            color_images.append(hs)
-            gray_images.append(v)
-
-    color_images = np.array(color_images)
-    gray_images = np.array(gray_images)
-    gray_images = np.expand_dims(gray_images, axis=-1)
+            color_images[i, :, :, 0] = h
+            color_images[i, :, :, 1] = s
+            gray_images[i, :, :, 0] = v
 
     return (color_images, gray_images)
 
@@ -129,20 +126,53 @@ def MakeLargerModel(input_size = (256, 256, 1)):
     conv9 = layers.Conv2D(64, 3, activation='relu', padding='same')(conv9)
 
     # Output
-    outputs = layers.Conv2D(3, 1, activation='sigmoid')(conv9)
+    outputs = layers.Conv2D(2, 1, activation='sigmoid')(conv9)
     
     # Model
     model = models.Model(inputs=inputs, outputs=outputs)
     return model
 
-def PerceptualLoss(feature_real, feature_pred, p = 1):
-    if p == 1:
-        return tf.reduce_mean(tf.abs(feature_real - feature_pred))
-    elif p == 2:
-        return tf.reduce_mean(tf.square(feature_real - feature_pred))
+def GenerateHistogram(photo, bins = 256):
+    h = photo[:, :, 0]
+    s = photo[:, :, 1]
+    range = [0., 1.]
 
-def color_distribution_loss(hist_real, hist_pred):
-    return tf.reduce_mean(tf.square(hist_real - hist_pred))
+    h_hist = tf.histogram_fixed_width(h, range, nbins = bins)
+    s_hist = tf.histogram_fixed_width(s, range, nbins = bins)
 
-def mse_loss(image_real, image_pred):
+    h_hist = h_hist / tf.reduce_sum(h_hist)
+    s_hist = s_hist / tf.reduce_sum(s_hist)
+
+    return (h_hist, s_hist)
+
+def Divergence(a, b):
+    epsilon = 1e-10
+    a = tf.clip_by_value(a, epsilon, 1.0)
+    b = tf.clip_by_value(b, epsilon, 1.0)
+    return tf.reduce_sum(a * tf.math.log(a/b))
+
+def ColorDistibutionLoss(hist_real, hist_pred):
+    h_real, s_real = hist_real
+    h_pred, s_pred = hist_pred
+
+    dist_hue = Divergence(h_real, h_pred)
+    dist_sat = Divergence(s_real, s_pred)
+    loss = dist_hue + dist_sat
+    
+    return loss
+
+def MseLoss(image_real, image_pred):
     return tf.reduce_mean(tf.square(image_real - image_pred))
+
+def CustomLoss(photo_real, photo_generated, color_lambda = 1., mse_lambda = 1.):
+
+    hist_real = GenerateHistogram(photo_real)
+    hist_generated = GenerateHistogram(photo_generated)
+    color_distribution_loss = ColorDistibutionLoss(hist_real, hist_generated)
+    color_distribution_loss = tf.cast(color_distribution_loss, dtype = tf.float64)
+
+    mse_loss = MseLoss(photo_real, photo_generated)
+    mse_loss = tf.cast(mse_loss, dtype = tf.float64)
+
+    total_loss = color_lambda * color_distribution_loss + mse_lambda * mse_loss
+    return total_loss

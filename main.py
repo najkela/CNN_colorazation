@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 def main():
     # Učitavanje istreniranog modela
-    model = load_model('AI.h5')
+    model = load_model('AI_my_loss_50e.h5', compile = False)
 
     # Učitavanje slika za obradu
     folder_path = './moje slike'
@@ -13,7 +13,7 @@ def main():
     originals = LoadOriginalImages(folder_path, (128, 128))
 
     # Obrada slika
-    num = 4 # broj slika koje ćemo obraditi
+    num = 6 # broj slika koje ćemo obraditi
     after_ai = model.predict(gray_images[:num])
     after_ai = CombineWithGray(after_ai, gray_images, num)
     
