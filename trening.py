@@ -1,5 +1,6 @@
 from utilities import *
 import tensorflow as tf
+from sklearn.model_selection import train_test_split as split
 import cProfile
 
 def main():
@@ -14,6 +15,7 @@ def main():
     # Učitavanje fajlova
     folder_path = './all_in_one_mini_dataset'
     color_images, gray_images = LoadImagesFromFolder(folder_path)
+    # gray_images, gray_test, color_images, color_test = ...
 
     # Treniranje modela
     history = model.fit(gray_images, color_images, validation_split=0.2, epochs=2, batch_size=32)
