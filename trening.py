@@ -8,13 +8,13 @@ def main():
     pr.enable()
 
     # Pravljenje modela
-    model = MakeLargerModel()
+    model = MakeModel(input_size = (128, 128, 1))
     model.compile(optimizer = 'adam', loss = 'mse')
 
     # Učitavanje fajlova
     folder_path = './mid_smaller_dataset'
-    dataset = LoadImagesFromFolder(folder_path)
-    dataset = dataset.batch(32)
+    dataset = LoadImagesFromFolder(folder_path, size = (128, 128))
+    dataset = PreprocessImages(dataset)
 
     # Treniranje modela
     model.fit(dataset, epochs=2)

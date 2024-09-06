@@ -1,22 +1,33 @@
 import os, cv2, numpy as np, tensorflow as tf
 from tensorflow.keras import layers, models # type: ignore
 
-def LoadImagesFromFolder(folder, size = (256, 256)):
-    imgs_paths = os.listdir(folder)
-    color_images, gray_images = np.zeros((len(imgs_paths), size[0], size[1], 2)), np.zeros((len(imgs_paths), size[0], size[1], 1))
-    for i, file_name in enumerate(imgs_paths):
-        img = cv2.imread(os.path.join(folder, file_name))
-        if img is not None:
-            img = cv2.resize(img, size)
-            h, s, v = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2HSV))
-            h = h / 179.
-            s = s / 255.
-            v = v / 255.
-            color_images[i, :, :, 0] = h
-            color_images[i, :, :, 1] = s
-            gray_images[i, :, :, 0] = v
+def LoadImagesFromFolder(folder, size = (256, 256), batch_size = 32):
+    dataset = tf.keras.utils.image_dataset_from_directory(
+        folder,
+        image_size = size, 
+        batch_size = batch_size,
+        label_mode = None,
+)
+    return dataset
 
-    return tf.data.Dataset.from_tensor_slices((gray_images, color_images))
+def EditImage(image):
+    image = tf.cast(image, tf.float32) / 255.0
+    hsv_image = tf.image.rgb_to_hsv(image)
+
+    h = hsv_image[:, :, :, 0]
+    s = hsv_image[:, :, :, 1]
+    v = hsv_image[:, :, :, 2]
+
+    hs = tf.stack([h, s], axis=-1)
+    v = tf.expand_dims(v, axis=-1)
+
+    return hs, v
+
+def PreprocessImages(dataset):
+    hs_images = dataset.map(lambda image: EditImage(image)[0])
+    v_images = dataset.map(lambda image: EditImage(image)[1])
+
+    return tf.data.Dataset.zip((v_images, hs_images))
 
 def LoadOriginalImages(folder, size = (256, 256)):
     images = []
