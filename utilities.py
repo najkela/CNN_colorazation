@@ -16,7 +16,7 @@ def LoadImagesFromFolder(folder, size = (256, 256)):
             color_images[i, :, :, 1] = s
             gray_images[i, :, :, 0] = v
 
-    return (color_images, gray_images)
+    return tf.data.Dataset.from_tensor_slices((color_images, gray_images))
 
 def LoadOriginalImages(folder, size = (256, 256)):
     images = []

@@ -13,10 +13,11 @@ def main():
 
     # Učitavanje fajlova
     folder_path = './mid_smaller_dataset'
-    color_images, gray_images = LoadImagesFromFolder(folder_path)
+    dataset = LoadImagesFromFolder(folder_path)
+    dataset = dataset.batch(32)
 
     # Treniranje modela
-    history = model.fit(gray_images, color_images, validation_split=0.2, epochs=2, batch_size=32)
+    model.fit(dataset, epochs=2)
 
     # Čuvanje istreniranog modela
     model.save('AI.h5')
