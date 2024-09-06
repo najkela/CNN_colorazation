@@ -1,24 +1,30 @@
 from utilities import *
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
+import cProfile
 
 def main():
+    # Pravljenje cProfile čitača
+    pr = cProfile.Profile()
+    pr.enable()
+
     # Pravljenje modela
-    model = MakeLargerModel()
-    model.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError()) # treba staviti moju loss funkciju
+    model = MakeModel(input_size = (128, 128, 1))
+    model.compile(optimizer = 'adam', loss = 'mse')
 
     # Učitavanje fajlova
-    folder_path = './mini_dataset'
-    color_images, gray_images = LoadImagesFromFolder(folder_path)
-
-    # Podela slika za trening i test
-    train_gray_images, test_gray_images, train_color_images, test_color_images = train_test_split(gray_images, color_images, test_size=0.2, random_state=42)
+    folder_path = './mid_smaller_dataset'
+    dataset = LoadImagesFromFolder(folder_path, size = (128, 128))
+    dataset = PreprocessImages(dataset)
 
     # Treniranje modela
-    history = model.fit(train_gray_images, train_color_images, validation_split=0.1, epochs=50, batch_size=None)
+    model.fit(dataset, epochs=2)
 
     # Čuvanje istreniranog modela
     model.save('AI.h5')
+
+    # Analiza pročitanih vrednosti sa cProfilea
+    pr.disable()
+    pr.print_stats()
 
 if __name__ == '__main__':
     main()

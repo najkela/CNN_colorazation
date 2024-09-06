@@ -1,23 +1,63 @@
-import os, cv2, numpy as np
+import os, cv2, numpy as np, tensorflow as tf
 from tensorflow.keras import layers, models # type: ignore
 
-def LoadImagesFromFolder(folder, size = (256, 256)):
-    color_images, gray_images = [], []
+def LoadImagesFromFolder(folder, size = (256, 256), batch_size = 32):
+    dataset = tf.keras.utils.image_dataset_from_directory(
+        folder,
+        image_size = size, 
+        batch_size = batch_size,
+        label_mode = None,
+)
+    return dataset
+
+def EditImage(image):
+    image = tf.cast(image, tf.float32) / 255.0
+    hsv_image = tf.image.rgb_to_hsv(image)
+
+    h = hsv_image[:, :, :, 0]
+    s = hsv_image[:, :, :, 1]
+    v = hsv_image[:, :, :, 2]
+
+    hs = tf.stack([h, s], axis=-1)
+    v = tf.expand_dims(v, axis=-1)
+
+    return hs, v
+
+def PreprocessImages(dataset):
+    hs_images = dataset.map(lambda image: EditImage(image)[0])
+    v_images = dataset.map(lambda image: EditImage(image)[1])
+
+    return tf.data.Dataset.zip((v_images, hs_images))
+
+def LoadOriginalImages(folder, size = (256, 256)):
+    images = []
     for file_name in os.listdir(folder):
         img = cv2.imread(os.path.join(folder, file_name))
         if img is not None:
             img = cv2.resize(img, size)
-            color_images.append(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            gray_images.append(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            images.append(img)
 
-    color_images = np.array(color_images)
-    gray_images = np.array(gray_images)
-    gray_images = np.expand_dims(gray_images, axis=-1)
+    return images
 
-    color_images = color_images / 255.
-    gray_images = gray_images / 255.
+def CombineWithGray(ai_generated, gray_images, num):
+    finished = []
+    for i in range(num):
+        hs = ai_generated[i]
+        h = hs[:, :, 0]
+        s = hs[:, :, 1]
+        v = gray_images[i][:, :, 0]
 
-    return (color_images, gray_images)
+        h = h * 179
+        s = s * 255
+        v = v * 255
+
+        photo = np.stack([h, s, v], axis = -1).astype(np.uint8)
+        photo = cv2.cvtColor(photo, cv2.COLOR_HSV2RGB)
+
+        finished.append(photo)
+    
+    return finished
 
 def MakeModel(input_size=(128, 128, 1)):
     inputs = layers.Input(input_size)
@@ -46,7 +86,7 @@ def MakeModel(input_size=(128, 128, 1)):
     conv5 = layers.Conv2D(64, 3, activation='relu', padding='same')(conv5)
 
     # Output layer
-    outputs = layers.Conv2D(3, 1, activation='sigmoid')(conv5)
+    outputs = layers.Conv2D(2, 1, activation='sigmoid')(conv5)
     
     model = models.Model(inputs=inputs, outputs=outputs)
     return model
@@ -97,8 +137,53 @@ def MakeLargerModel(input_size = (256, 256, 1)):
     conv9 = layers.Conv2D(64, 3, activation='relu', padding='same')(conv9)
 
     # Output
-    outputs = layers.Conv2D(3, 1, activation='sigmoid')(conv9)
+    outputs = layers.Conv2D(2, 1, activation='sigmoid')(conv9)
     
     # Model
     model = models.Model(inputs=inputs, outputs=outputs)
     return model
+
+def GenerateHistogram(photo, bins = 256):
+    h = photo[:, :, 0]
+    s = photo[:, :, 1]
+    range = [0., 1.]
+
+    h_hist = tf.histogram_fixed_width(h, range, nbins = bins)
+    s_hist = tf.histogram_fixed_width(s, range, nbins = bins)
+
+    h_hist = h_hist / tf.reduce_sum(h_hist)
+    s_hist = s_hist / tf.reduce_sum(s_hist)
+
+    return (h_hist, s_hist)
+
+def Divergence(a, b):
+    epsilon = 1e-10
+    a = tf.clip_by_value(a, epsilon, 1.0)
+    b = tf.clip_by_value(b, epsilon, 1.0)
+    return tf.reduce_sum(a * tf.math.log(a/b))
+
+def ColorDistibutionLoss(hist_real, hist_pred):
+    h_real, s_real = hist_real
+    h_pred, s_pred = hist_pred
+
+    dist_hue = Divergence(h_real, h_pred)
+    dist_sat = Divergence(s_real, s_pred)
+    loss = dist_hue + dist_sat
+    
+    return loss
+
+def MseLoss(image_real, image_pred):
+    return tf.reduce_mean(tf.square(image_real - image_pred))
+
+def CustomLoss(photo_real, photo_generated, color_lambda = 1., mse_lambda = 1.):
+
+    hist_real = GenerateHistogram(photo_real)
+    hist_generated = GenerateHistogram(photo_generated)
+    color_distribution_loss = ColorDistibutionLoss(hist_real, hist_generated)
+    color_distribution_loss = tf.cast(color_distribution_loss, dtype = tf.float64)
+
+    mse_loss = MseLoss(photo_real, photo_generated)
+    mse_loss = tf.cast(mse_loss, dtype = tf.float64)
+
+    total_loss = color_lambda * color_distribution_loss + mse_lambda * mse_loss
+    return total_loss
