@@ -1,30 +1,30 @@
 from utilities import *
 import tensorflow as tf
-import cProfile
+import matplotlib.pyplot as plt
 
 def main():
-    # Pravljenje cProfile čitača
-    pr = cProfile.Profile()
-    pr.enable()
-
     # Pravljenje modela
-    model = MakeModel(input_size = (128, 128, 1))
-    model.compile(optimizer = 'adam', loss = 'mse')
+    model = MakeModel(input_size = (256, 256, 1))
+    model.compile(optimizer = 'adam', loss = 'mse', metrics = ['accuracy'])
 
     # Učitavanje fajlova
     folder_path = './mid_smaller_dataset'
-    dataset = LoadImagesFromFolder(folder_path, size = (128, 128))
+    dataset, val = LoadImagesFromFolder(folder_path, size = (256, 256), batch_size = 16)
     dataset = PreprocessImages(dataset)
+    val = PreprocessImages(val)
 
     # Treniranje modela
-    model.fit(dataset, epochs=2)
+    history = model.fit(dataset, epochs = 100, validation_data = val)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Test'], loc = 'upper left')
+    plt.show()
 
     # Čuvanje istreniranog modela
     model.save('AI.h5')
-
-    # Analiza pročitanih vrednosti sa cProfilea
-    pr.disable()
-    pr.print_stats()
 
 if __name__ == '__main__':
     main()
