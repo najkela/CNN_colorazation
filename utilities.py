@@ -21,7 +21,7 @@ def LoadImagesFromFolder(folder, size = (256, 256), batch_size = 32):
         label_mode = None
 )
 
-    return (dataset, val_ds)
+    return dataset, val_ds
 
 def EditImage(image):
     image = tf.cast(image, tf.float32) / 255.0
@@ -34,7 +34,6 @@ def EditImage(image):
     hs = tf.stack([h, s], axis=-1)
     v = tf.expand_dims(v, axis=-1)
 
-    del image, hsv_image, h, s
     return hs, v
 
 def PreprocessImages(dataset):
@@ -74,5 +73,4 @@ def MakeModel(input_size=(128, 128, 1)):
     outputs = layers.Conv2D(2, 1, activation='sigmoid')(conv5)
     
     model = models.Model(inputs=inputs, outputs=outputs)
-    del inputs, conv1, pool1, conv2, pool2, conv3, up4, merge4, conv4, up5, merge5, conv5, outputs
     return model
