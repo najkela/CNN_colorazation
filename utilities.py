@@ -1,5 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models # type: ignore
+import os, cv2, numpy as np
+import matplotlib.pyplot as plt
 
 def LoadImagesFromFolder(folder, size = (256, 256), batch_size = 32):
     dataset = tf.keras.utils.image_dataset_from_directory(
@@ -74,3 +76,39 @@ def MakeModel(input_size=(128, 128, 1)):
     
     model = models.Model(inputs=inputs, outputs=outputs)
     return model
+
+def LoadValidation(folder, size = (256, 256), batch_size = 32):
+    images = tf.keras.utils.image_dataset_from_directory(
+        folder,
+        image_size = size, 
+        batch_size = batch_size,
+        label_mode = None,
+)
+    return images
+
+def MakeGray(images):
+    gray_images = images.map(lambda image: EditImage(image)[1])
+    
+    return gray_images
+
+def CombineWithGray(after_ai, gray_images):
+    images = []
+    for i, hs_image in enumerate(after_ai):
+        image = np.zeros((hs_image.shape[0], hs_image.shape[1], 3))
+        image[:, :, 0] = hs_image[:, :, 0] * 179
+        image[:, :, 1] = hs_image[:, :, 1] * 255
+        image[:, :, 2] = gray_images[i]
+        image = image.astype(np.uint8)
+        image = cv2.cvtColor(image, cv2.COLOR_HSV2RGB)
+        images.append(image)
+    
+    return images
+
+def LoadImages(folder, size = (256, 256)):
+    images, gray = [], []
+    for image_path in os.listdir(folder):
+        image = cv2.resize(cv2.imread(os.path.join(folder, image_path)), size)
+        images.append(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        gray.append(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
+    
+    return images, gray
