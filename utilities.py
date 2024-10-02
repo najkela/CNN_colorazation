@@ -1,7 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import layers, models # type: ignore
 import os, cv2, numpy as np
-import matplotlib.pyplot as plt
 
 def LoadImagesFromFolder(folder, size = (256, 256), batch_size = 32):
     dataset = tf.keras.utils.image_dataset_from_directory(
@@ -59,20 +58,38 @@ def MakeModel(input_size=(128, 128, 1)):
 
     conv3 = layers.Conv2D(2 * size, 3, activation='relu', padding='same')(pool2)
     conv3 = layers.Conv2D(2 * size, 3, activation='relu', padding='same')(conv3)
+    pool3 = layers.MaxPooling2D(pool_size=(2, 2))(conv3)
+
+    conv4 = layers.Conv2D(4 * size, 3, activation='relu', padding='same')(pool3)
+    conv4 = layers.Conv2D(4 * size, 3, activation='relu', padding='same')(conv4)
+    pool4 = layers.MaxPooling2D(pool_size=(2, 2))(conv4)
+
+    conv5 = layers.Conv2D(8 * size, 3, activation='relu', padding='same')(pool4)
+    conv5 = layers.Conv2D(8 * size, 3, activation='relu', padding='same')(conv5)
 
     # Decoder
-    up4 = layers.Conv2DTranspose(size, 2, strides=(2, 2), padding='same')(conv3)
-    merge4 = layers.concatenate([conv2, up4], axis=3)
-    conv4 = layers.Conv2D(size, 3, activation='relu', padding='same')(merge4)
-    conv4 = layers.Conv2D(size, 3, activation='relu', padding='same')(conv4)
+    up6 = layers.Conv2DTranspose(4 * size, 2, strides=(2, 2), padding='same')(conv5)
+    merge6 = layers.concatenate([conv4, up6], axis=3)
+    conv6 = layers.Conv2D(4 * size, 3, activation='relu', padding='same')(merge6)
+    conv6 = layers.Conv2D(4 * size, 3, activation='relu', padding='same')(conv6)
 
-    up5 = layers.Conv2DTranspose(size // 2, 2, strides=(2, 2), padding='same')(conv4)
-    merge5 = layers.concatenate([conv1, up5], axis=3)
-    conv5 = layers.Conv2D(size // 2, 3, activation='relu', padding='same')(merge5)
-    conv5 = layers.Conv2D(size // 2, 3, activation='relu', padding='same')(conv5)
+    up7 = layers.Conv2DTranspose(2 * size, 2, strides=(2, 2), padding='same')(conv6)
+    merge7 = layers.concatenate([conv3, up7], axis=3)
+    conv7 = layers.Conv2D(2 * size, 3, activation='relu', padding='same')(merge7)
+    conv7 = layers.Conv2D(2 * size, 3, activation='relu', padding='same')(conv7)
+
+    up8 = layers.Conv2DTranspose(size, 2, strides=(2, 2), padding='same')(conv7)
+    merge8 = layers.concatenate([conv2, up8], axis=3)
+    conv8 = layers.Conv2D(size, 3, activation='relu', padding='same')(merge8)
+    conv8 = layers.Conv2D(size, 3, activation='relu', padding='same')(conv8)
+
+    up9 = layers.Conv2DTranspose(size // 2, 2, strides=(2, 2), padding='same')(conv8)
+    merge9 = layers.concatenate([conv1, up9], axis=3)
+    conv9 = layers.Conv2D(size // 2, 3, activation='relu', padding='same')(merge9)
+    conv9 = layers.Conv2D(size // 2, 3, activation='relu', padding='same')(conv9)
 
     # Output layer
-    outputs = layers.Conv2D(2, 1, activation='sigmoid')(conv5)
+    outputs = layers.Conv2D(2, 1, activation='sigmoid')(conv9)
     
     model = models.Model(inputs=inputs, outputs=outputs)
     return model
