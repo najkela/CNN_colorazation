@@ -45,7 +45,7 @@ def main():
     fig.tight_layout()
     plt.show()
 
-    print(f"{sum(SSIMs) / num:.2f}")
+    print(f"Average: {sum(SSIMs) / num : .2f}, Min: {min(SSIMs) : .2f}, Max: {max(SSIMs) : .2f}")
 
 if __name__ == '__main__':
     main()
